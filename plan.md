@@ -1,168 +1,79 @@
-下面给你一套“开箱即用”的 VS Code + CUDA 项目创建方法（Windows 为主，Linux/WSL 同理）。按你熟悉程度选 A（超快上手，单文件）或 B（标准工程，CMake）。
+# CUDA Quickstart 项目规划
 
----
+## 项目目标
 
-# 0) 先装好这些（一次性）
+提供开箱即用的 CUDA 开发模板，帮助开发者快速搭建 Windows + VS Code 环境下的 CUDA 项目。
 
-1. **NVIDIA 驱动**（显卡正常工作）。
-2. **CUDA Toolkit**（安装后应有 `nvcc`）。
-3. **Windows 专用**：安装 **Microsoft C++ Build Tools / VS 2022（含 MSVC）**，否则 `nvcc` 找不到 `cl.exe`。
-4. **VS Code 扩展**：
-
-   * *C/C++*（ms-vscode.cpptools）
-   * *CMake Tools*（ms-vscode.cmake-tools）—如果你选方案 B
-   * *NVIDIA Nsight VS Code Edition*（调试 GPU 内核可用，选装）
-
-> 验证：打开终端输入 `nvcc --version` 与 `nvidia-smi`。能正常输出版本/显卡信息即 OK。
-
----
-
-# A) 超快上手（单文件 + tasks.json，用 `nvcc` 直接编译）
-
-适合想先跑通一个最小 CUDA 内核的场景。
-
-**目录结构**
+## 项目结构
 
 ```
 cuda-quickstart/
-  .vscode/
-    tasks.json
-  main.cu
+├── common/                    # 公共头文件
+│   └── cuda_helper.h          # CUDA 辅助函数和宏
+├── single-nvcc/               # 方案 A：单文件 nvcc 编译
+│   ├── main.cu
+│   ├── .vscode/
+│   │   ├── tasks.json         # VS Code 构建任务
+│   │   └── launch.json        # 调试配置
+│   └── scripts/
+│       └── build_and_run.ps1  # 自动构建脚本
+├── cuda-cmake/                # 方案 B：CMake 工程
+│   ├── CMakeLists.txt
+│   ├── src/main.cu
+│   ├── .vscode/
+│   │   ├── tasks.json
+│   │   └── launch.json
+│   └── scripts/
+│       └── configure_build_run.ps1
+└── scripts/                   # 全局环境配置脚本
+    ├── common/
+    │   └── VsHelper.psm1      # VS 环境检测模块
+    └── global/
+        ├── enable_cuda_env.ps1              # 临时启用 CUDA 环境
+        ├── install_ecuda_alias.ps1          # 安装 ecuda 快捷命令
+        ├── install_cuda_env_persistent.ps1  # 持久化安装
+        └── remove_cuda_env_persistent.ps1   # 卸载
 ```
 
-**main.cu**
+## 功能特性
 
-```cpp
-#include <cstdio>
+### ✅ 已实现
 
-__global__ void add_one(int *a) {
-    int i = blockIdx.x * blockDim.x + threadIdx.x;
-    a[i] += 1;
-}
+- [x] 单文件 nvcc 编译方案（single-nvcc）
+- [x] CMake 标准工程方案（cuda-cmake）
+- [x] 自动探测 GPU 架构（`native`）
+- [x] 多架构 fatbin 支持（sm_75/86/89/90/100）
+- [x] Debug/Release 配置切换
+- [x] FastMath 优化选项
+- [x] cuDNN 自动检测与集成
+- [x] NVTX 标记支持
+- [x] VS 2022/2026 自动检测与兼容
+- [x] 全局 CUDA 环境配置脚本
+- [x] `ecuda` 一键启用命令
 
-int main() {
-    const int N = 16;
-    int h[N];
-    for (int i = 0; i < N; ++i) h[i] = i;
+### 🔧 技术要求
 
-    int *d;
-    cudaMalloc(&d, N * sizeof(int));
-    cudaMemcpy(d, h, N * sizeof(int), cudaMemcpyHostToDevice);
+| 组件 | 要求 |
+|------|------|
+| CUDA Toolkit | ≥ 12.0（推荐 13.0）|
+| CMake | ≥ 3.24（支持 `native` 架构）|
+| Visual Studio | 2022 Build Tools |
+| Windows | 10/11 x64 |
 
-    add_one<<<1, N>>>(d);
-    cudaDeviceSynchronize();
+### 📊 支持的 GPU 架构
 
-    cudaMemcpy(h, d, N * sizeof(int), cudaMemcpyDeviceToHost);
-    cudaFree(d);
+| SM | 架构 | GPU 系列 |
+|----|------|----------|
+| 75 | Turing | GTX 16xx, RTX 20xx |
+| 86 | Ampere | RTX 30xx |
+| 89 | Ada Lovelace | RTX 40xx |
+| 90 | Hopper | H100 |
+| 100 | Blackwell | RTX 50xx |
 
-    for (int i = 0; i < N; ++i) printf("%d ", h[i]);
-    printf("\n");
-    return 0;
-}
-```
+## 后续计划
 
-**.vscode/tasks.json**（Windows，MSVC 主机编译器）
-
-```json
-{
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "Build with NVCC (Debug)",
-      "type": "shell",
-      "command": "nvcc",
-      "args": [
-        "-std=c++17",
-        "-g", "-G", "-lineinfo",
-        "-arch=sm_86",                  // 根据显卡改：20系=sm_75，30系=sm_86，40系(Ada)=sm_89
-        "main.cu",
-        "-o", "build\\main.exe"
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "group": "build",
-      "problemMatcher": []
-    },
-    {
-      "label": "Run",
-      "type": "shell",
-      "command": ".\\build\\main.exe",
-      "dependsOn": "Build with NVCC (Debug)"
-    }
-  ]
-}
-```
-
-> 运行：`Ctrl+Shift+P` → “Tasks: Run Task” → 选 **Run**。
-> 常见坑：
->
-> * 找不到 `cl.exe`：安装 *VS 2022 Build Tools*，或用 “Developer Command Prompt for VS” 打开 VS Code。
-> * `-arch` 要匹配你的 GPU 架构（例：RTX 3060 用 `sm_86`）。
-
----
-
-# B) 标准工程（CMake + CUDA，推荐日常开发）
-
-更易维护、跨平台，VS Code 的 CMake Tools 一键配置/构建。
-
-**目录结构**
-
-```
-cuda-cmake/
-  CMakeLists.txt
-  src/
-    main.cu
-```
-
-**CMakeLists.txt**（要求 CMake ≥ 3.24 可用 `CUDA_ARCHITECTURES` 的 `native`）
-
-```cmake
-cmake_minimum_required(VERSION 3.24)
-project(CudaDemo LANGUAGES CXX CUDA)
-
-set(CMAKE_CUDA_STANDARD 17)
-set(CMAKE_CUDA_STANDARD_REQUIRED ON)
-
-# 自动使用本机 GPU 架构；若报不支持，可改成具体数值，如 75;86;89
-set(CMAKE_CUDA_ARCHITECTURES native)
-
-add_executable(cudatest src/main.cu)
-target_link_libraries(cudatest PRIVATE CUDA::cudart)
-
-# Debug 体验更好（行号、设备调试信息）
-target_compile_options(cudatest PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-G -lineinfo>)
-```
-
-**src/main.cu**（同上示例或你自己的代码）
-
-**在 VS Code 中构建**
-
-1. 打开文件夹 → 左下角 **CMake** 状态栏选择编译器套件（Windows 选 *Visual Studio 2022 Release - amd64* 或 *Clang-cl*）。
-2. 点 **Configure** → **Build**。生成的可执行文件在 `build/`（或 `out/build/...`）目录。
-3. 运行：`CMake: Run` 或在终端执行生成的可执行文件。
-
-> 如果 `native` 架构不被识别，可改：
-> `set(CMAKE_CUDA_ARCHITECTURES 75 86 89)`（根据你/同学的显卡列出多个）。
-
----
-
-##（可选）GPU 调试
-
-* 安装 **NVIDIA Nsight VS Code Edition** 扩展。
-* 用它的调试配置启动，可在 `__global__` 内核里打断点、单步。
-* 纯 VS Code 的 `cppdbg` 不能直接调试 GPU 线程，CPU 端可以。
-
----
-
-## 常见问题速查
-
-* **`nvcc` 找不到 / 不是内部命令**：把 `CUDA\\vX.Y\\bin` 加入 PATH，重开终端。
-* **`cl.exe` not found**：安装 *MSVC*；或用 “Developer Command Prompt for VS 2022” 打开当前工程再编译。
-* **算力不匹配报错**：`-arch=sm_XY` 改成与你显卡一致（20 系=75，30 系=86，40 系=89；老 10 系多为 61）。
-* **MinGW 不支持**：Windows 下 `nvcc` 默认走 MSVC；不要用 MinGW 作为 host 编译器。
-* **WSL2**：需要 Windows 上安装支持 WSL 的 NVIDIA 驱动；WSL 里安装 `cuda-toolkit` 后用 GCC/CMake 构建，VS Code 远程连接 WSL 即可。
-
----
-
-需要我把上述示例打包成可直接打开的最小模板（含 CMake 与 tasks.json 两版）吗？我可以按你的显卡型号，把 `-arch` 和 `CUDA_ARCHITECTURES` 顺便配好。
+- [ ] 添加更多 CUDA 示例（矩阵乘法、归约等）
+- [ ] Linux/WSL 支持脚本
+- [ ] GitHub Actions CI/CD
+- [ ] cuBLAS/cuFFT 集成示例
+- [ ] Nsight 调试配置模板
