@@ -4,6 +4,7 @@
 #include <cuda_runtime.h>
 #include <cstdio>
 #include <cstdlib>
+#include <algorithm> // for std::min
 
 /**
  * @brief CUDA 错误检查宏
@@ -53,7 +54,7 @@
 class CudaEvent {
 public:
     CudaEvent() { CUDA_CHECK(cudaEventCreate(&event_)); }
-    ~CudaEvent() { cudaEventDestroy(event_); }
+    ~CudaEvent() { if (event_) cudaEventDestroy(event_); }
     
     // 禁用拷贝
     CudaEvent(const CudaEvent&) = delete;
@@ -72,13 +73,14 @@ public:
         return *this;
     }
     
-    cudaEvent_t get() const { return event_; }
+    [[nodiscard]] cudaEvent_t get() const { return event_; }
     operator cudaEvent_t() const { return event_; }
     
     void record(cudaStream_t stream = 0) { CUDA_CHECK(cudaEventRecord(event_, stream)); }
     void synchronize() { CUDA_CHECK(cudaEventSynchronize(event_)); }
     
-    static float elapsedMs(const CudaEvent& start, const CudaEvent& end) {
+    [[nodiscard]] static float elapsedMs(const CudaEvent& start, const CudaEvent& end) {
+        CUDA_CHECK(cudaEventSynchronize(end.event_)); // 确保结束事件已完成
         float ms = 0.f;
         CUDA_CHECK(cudaEventElapsedTime(&ms, start.event_, end.event_));
         return ms;
@@ -128,17 +130,19 @@ public:
         return *this;
     }
     
-    T* get() const { return ptr_; }
-    size_t count() const { return count_; }
-    size_t bytes() const { return count_ * sizeof(T); }
+    [[nodiscard]] T* get() const { return ptr_; }
+    [[nodiscard]] size_t count() const { return count_; }
+    [[nodiscard]] size_t bytes() const { return count_ * sizeof(T); }
     
     void copyFromHost(const T* src, size_t n = 0) {
-        size_t copyCount = (n == 0) ? count_ : n;
+        if (!ptr_) return; // 空指针检查（移动后可能为空）
+        size_t copyCount = (n == 0) ? count_ : std::min(n, count_);
         CUDA_CHECK(cudaMemcpy(ptr_, src, copyCount * sizeof(T), cudaMemcpyHostToDevice));
     }
     
     void copyToHost(T* dst, size_t n = 0) const {
-        size_t copyCount = (n == 0) ? count_ : n;
+        if (!ptr_) return; // 空指针检查（移动后可能为空）
+        size_t copyCount = (n == 0) ? count_ : std::min(n, count_);
         CUDA_CHECK(cudaMemcpy(dst, ptr_, copyCount * sizeof(T), cudaMemcpyDeviceToHost));
     }
     
@@ -146,17 +150,6 @@ private:
     T* ptr_ = nullptr;
     size_t count_ = 0;
 };
-
-/**
- * @brief 简单的 grid-stride loop kernel
- * 
- * 用于处理任意大小 N 的数组，确保所有元素都被处理。
- */
-__global__ inline void add_one_kernel(int* __restrict__ a, int n) {
-    for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += blockDim.x * gridDim.x) {
-        a[i] += 1;
-    }
-}
 
 /**
  * @brief 计算合适的 grid 大小
