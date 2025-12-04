@@ -1,4 +1,5 @@
 // single-nvcc/main.cu - 使用公共头文件的简单 CUDA 示例
+// single-nvcc/main.cu - Simple CUDA example using common header
 #include "../common/cuda_helper.h"
 #include <vector>
 #include <numeric>
@@ -19,28 +20,32 @@ __global__ void add_one(int* __restrict__ a, int n) {
 
 int main() {
     const int N = 1 << 16;
-    
+
     // 使用 std::vector 代替手动 malloc
+    // Use std::vector instead of manual malloc
     std::vector<int> h(N);
     std::iota(h.begin(), h.end(), 0);
 
     // 使用 RAII 包装管理设备内存
+    // Use RAII wrapper to manage device memory
     CudaDeviceMemory<int> d(N);
     d.copyFromHost(h.data());
-    
+
     const int block = 256;
     const int grid = (N + block - 1) / block;
-    
+
     // 使用 RAII 包装计时
+    // Use RAII wrapper for timing
     CudaEvent e0, e1;
     e0.record();
     add_one<<<grid, block>>>(d.get(), N);
     e1.record();
-    
+
     // 检查 kernel 启动错误
+    // Check kernel launch errors
     CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaDeviceSynchronize());
-    
+
     float ms = CudaEvent::elapsedMs(e0, e1);
 
     d.copyToHost(h.data());
@@ -48,6 +53,6 @@ int main() {
     for (int i = 0; i < 16 && i < N; ++i) printf("%d ", h[i]);
     printf("...  (N=%d)\n", N);
     printf("kernel elapsed: %.3f ms\n", ms);
-    
+
     return 0;
 }
