@@ -1,0 +1,58 @@
+# Build outputs
+build/
+build-*/
+out/
+
+# Executables and binaries
+*.exe
+*.obj
+*.o
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.a
+*.so
+*.dylib
+
+# CMake generated files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CMakeScripts/
+Makefile
+*.cmake
+!CMakeLists.txt
+
+# Ninja build files
+*.ninja*
+.ninja_deps
+.ninja_log
+
+# IDE and editor files
+.vs/
+.vscode/*.log
+*.suo
+*.user
+*.sln
+*.vcxproj*
+
+# CUDA intermediate files
+*.cubin
+*.fatbin
+*.ptx
+*.i
+*.ii
+*.gpu
+*.cu.cpp
+*.cudafe1.*
+
+# OS generated files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*~

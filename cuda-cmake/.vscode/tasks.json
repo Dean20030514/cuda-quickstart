@@ -1,0 +1,76 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "CMake Build (Debug)",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "& { . '${workspaceFolder}/cuda-cmake/scripts/configure_build_run.ps1' -Configuration Debug }"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/cuda-cmake"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "CMake Build (Release)",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "& { . '${workspaceFolder}/cuda-cmake/scripts/configure_build_run.ps1' -Configuration Release }"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/cuda-cmake"
+      },
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "CMake Run (Debug, auto env)",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/cuda-cmake/scripts/configure_build_run.ps1",
+        "-Configuration",
+        "Debug"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/cuda-cmake"
+      }
+    },
+    {
+      "label": "CMake Run (Release, auto env)",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/cuda-cmake/scripts/configure_build_run.ps1",
+        "-Configuration",
+        "Release"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/cuda-cmake"
+      }
+    }
+  ]
+}
