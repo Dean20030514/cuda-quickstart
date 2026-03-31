@@ -197,6 +197,14 @@ public:
     void record(cudaStream_t stream = 0) { CUDA_CHECK(cudaEventRecord(event_, stream)); }
     void synchronize() { CUDA_CHECK(cudaEventSynchronize(event_)); }
 
+    /**
+     * @warning 此方法会隐式调用 cudaEventSynchronize() 等待两个事件完成，
+     *          因此会阻塞调用线程直到 GPU 执行到相应事件。
+     *
+     * @warning This method implicitly calls cudaEventSynchronize() on both
+     *          events, blocking the calling thread until the GPU reaches each
+     *          event. If you need non-blocking behavior, synchronize manually.
+     */
     [[nodiscard]] static float elapsedMs(const CudaEvent& start, const CudaEvent& end) {
         CUDA_CHECK(cudaEventSynchronize(start.event_));
         CUDA_CHECK(cudaEventSynchronize(end.event_));
@@ -253,6 +261,7 @@ public:
 
     [[nodiscard]] T* get() const { return ptr_; }
     [[nodiscard]] size_t count() const { return count_; }
+    [[nodiscard]] size_t size() const { return count_; }   // STL-style alias
     [[nodiscard]] size_t bytes() const { return count_ * sizeof(T); }
 
     void copyFromHost(const T* src, size_t n = 0) {
@@ -338,6 +347,7 @@ public:
 
     [[nodiscard]] T* get() const { return ptr_; }
     [[nodiscard]] size_t count() const { return count_; }
+    [[nodiscard]] size_t size() const { return count_; }   // STL-style alias
     [[nodiscard]] size_t bytes() const { return count_ * sizeof(T); }
 
     T& operator[](size_t i) { return ptr_[i]; }
@@ -385,8 +395,12 @@ inline void printDeviceInfo(int device = 0) {
     printf("  Shared mem/block   : %.1f KiB\n", prop.sharedMemPerBlock / 1024.0);
     printf("  Max threads/block  : %d\n", prop.maxThreadsPerBlock);
     printf("  Warp size          : %d\n", prop.warpSize);
+    printf("  Clock rate (core)  : %.0f MHz\n", prop.clockRate / 1000.0);
+    printf("  Clock rate (mem)   : %.0f MHz\n", prop.memoryClockRate / 1000.0);
     printf("  Memory bus width   : %d-bit\n", prop.memoryBusWidth);
     printf("  L2 cache size      : %d KB\n", prop.l2CacheSize / 1024);
+    printf("  ECC enabled        : %s\n", prop.ECCEnabled ? "Yes" : "No");
+    printf("  Async engines      : %d\n", prop.asyncEngineCount);
     printf("==============================\n");
 }
 

@@ -116,7 +116,7 @@ function Test-CuDnnRuntime {
         if ($candidate) { $dllPath = $candidate.FullName }
       }
     }
-    if (-not $dllPath) { throw 'cudnn64_9.dll not found under CUDA Toolkit bin.' }
+    if (-not $dllPath) { throw 'cudnn64_*.dll not found under CUDA Toolkit bin.' }
     $dllEscaped = $dllPath -replace '\\','\\\\'
     $src = @"
 using System;

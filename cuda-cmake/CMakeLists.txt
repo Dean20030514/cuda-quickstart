@@ -29,7 +29,9 @@ option(ENABLE_CUFFT "Enable cuFFT integration" ON)
 target_link_libraries(cudatest PRIVATE CUDA::cudart)
 
 target_compile_options(cudatest PRIVATE
-	$<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/utf-8>
+	# /utf-8 仅 MSVC 需要；GCC/Clang 默认 UTF-8
+	# /utf-8 is MSVC-only; GCC/Clang default to UTF-8
+	$<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<CXX_COMPILER_ID:MSVC>>:-Xcompiler=/utf-8>
 
 	$<$<AND:$<COMPILE_LANGUAGE:CUDA>,$<CONFIG:Debug>>:-G>
 

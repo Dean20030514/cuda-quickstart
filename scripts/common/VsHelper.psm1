@@ -93,13 +93,14 @@ function Find-VsDevCmd {
 
 <#
 .SYNOPSIS
-    判断 VS 安装是否为 CUDA 官方支持的版本（VS 2022 或更高）
+    判断 VS 安装是否为 CUDA 官方支持的版本（当前为 VS 2022）
+    Check whether the VS installation is an officially CUDA-supported version (currently VS 2022)
 .PARAMETER VsDevCmdPath
     VsDevCmd.bat 的路径
 .OUTPUTS
     [bool] 是否为 CUDA 官方支持的 VS 版本
 #>
-function Test-IsVs2022 {
+function Test-IsCudaOfficialVs {
     [CmdletBinding()]
     [OutputType([bool])]
     param(
@@ -129,7 +130,7 @@ function Get-CudaUnsupportedCompilerFlag {
         [string]$VsDevCmdPath
     )
 
-    if (Test-IsVs2022 -VsDevCmdPath $VsDevCmdPath) {
+    if (Test-IsCudaOfficialVs -VsDevCmdPath $VsDevCmdPath) {
         return ''
     } else {
         return '-allow-unsupported-compiler'
@@ -165,4 +166,4 @@ function Import-CmdEnvironment {
 }
 
 # 导出模块成员
-Export-ModuleMember -Function Find-VsDevCmd, Test-IsVs2022, Get-CudaUnsupportedCompilerFlag, Import-CmdEnvironment
+Export-ModuleMember -Function Find-VsDevCmd, Test-IsCudaOfficialVs, Get-CudaUnsupportedCompilerFlag, Import-CmdEnvironment

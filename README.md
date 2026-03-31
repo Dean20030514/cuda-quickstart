@@ -45,21 +45,76 @@ nvidia-smi        # 应显示 GPU 信息 | Should display GPU info
 ### Option A | 方案 A: single-nvcc (单文件，快速上手 | Single file, quick start)
 
 ```powershell
+# Windows (PowerShell)
 cd single-nvcc
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build_and_run.ps1
+```
+
+```bash
+# Linux / WSL
+cd single-nvcc
+bash scripts/build_and_run.sh
 ```
 
 ### Option B | 方案 B: cuda-cmake (CMake，推荐日常开发 | CMake, recommended)
 
 ```powershell
+# Windows (PowerShell)
 cd cuda-cmake
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\configure_build_run.ps1
+```
+
+```bash
+# Linux / WSL
+cd cuda-cmake
+bash scripts/configure_build_run.sh
 ```
 
 ### VS Code
 
 1. 打开仓库目录 | Open the repository directory
 2. `Ctrl+Shift+P` -> "Tasks: Run Task" -> 选择任务 | Select a task
+
+## Expected Output | 预期输出
+
+运行成功后，终端输出类似以下内容（具体数值因 GPU 型号而异）：
+
+After a successful run, terminal output looks similar to this (exact values vary by GPU):
+
+```
+=== GPU Device 0: NVIDIA GeForce RTX 4090 ===
+  Compute capability : 8.9
+  SM count           : 128
+  Global memory      : 23.6 GiB
+  Shared mem/block   : 48.0 KiB
+  Max threads/block  : 1024
+  Warp size          : 32
+  Clock rate (core)  : 2520 MHz
+  Clock rate (mem)   : 10501 MHz
+  Memory bus width   : 384-bit
+  L2 cache size      : 73728 KB
+  ECC enabled        : No
+  Async engines      : 2
+==============================
+=== Bandwidth Test (64 MiB, avg of 5 runs) ===
+  H2D : 25.31 GB/s (2.65 ms)
+  D2H : 25.82 GB/s (2.60 ms)
+==============================
+
+--- Kernel Demo ---
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 ...  (N=1048576)
+  kernel elapsed: 0.042 ms
+  verification:   PASSED
+
+--- Async Stream Demo ---
+  Async round-trip 1.0 MB: 0.089 ms -> PASSED
+
+=== All demos completed. ===
+```
+
+> 关键指标：所有 `verification` 应显示 **PASSED**，退出码为 0。
+>
+> Key indicators: all `verification` lines should show **PASSED** and the exit code should be 0.
 
 ## Project Structure | 项目结构
 
@@ -68,14 +123,20 @@ cuda-quickstart/
 ├── common/cuda_helper.h           # RAII 工具 + 错误检查 + 带宽测试 | RAII utilities + error checking + bandwidth
 ├── single-nvcc/                   # Option A
 │   ├── main.cu
-│   └── scripts/build_and_run.ps1
+│   └── scripts/
+│       ├── build_and_run.ps1      # Windows 构建脚本 | Windows build script
+│       └── build_and_run.sh       # Linux 构建脚本 | Linux build script
 ├── cuda-cmake/                    # Option B
 │   ├── CMakeLists.txt
 │   ├── src/main.cu
-│   └── scripts/configure_build_run.ps1
+│   └── scripts/
+│       ├── configure_build_run.ps1  # Windows 构建脚本 | Windows build script
+│       └── configure_build_run.sh   # Linux 构建脚本 | Linux build script
 └── scripts/
-    ├── common/VsHelper.psm1              # VS 开发环境辅助模块 | VS dev env helper module
-    └── global/                            # 全局环境配置 | Global environment configuration
+    ├── common/
+    │   ├── VsHelper.psm1                 # VS 开发环境辅助模块 | VS dev env helper module (Windows)
+    │   └── cuda_common.sh                # Linux 公共工具函数 | Linux shared utilities
+    └── global/                            # 全局环境配置 (Windows) | Global env configuration (Windows)
         ├── enable_cuda_env.ps1            # 临时启用 | Temporary enable
         ├── install_ecuda_alias.ps1        # 安装快捷命令 | Install shortcut command
         ├── install_cuda_env_persistent.ps1  # 持久化安装 | Persistent installation
@@ -119,11 +180,21 @@ cuda-quickstart/
 ### Complete Examples | 完整示例
 
 ```powershell
+# Windows (PowerShell)
 # cuda-cmake: Release + RTX 50 + FastMath
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\configure_build_run.ps1 -Configuration Release -CudaArch "120" -FastMath
 
 # single-nvcc: Release + RTX 50 + FastMath
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build_and_run.ps1 -Configuration Release -Sm 120 -FastMath
+```
+
+```bash
+# Linux / WSL
+# cuda-cmake: Release + RTX 50 + FastMath
+bash scripts/configure_build_run.sh -c Release -a 120 -f
+
+# single-nvcc: Release + RTX 50 + FastMath
+bash scripts/build_and_run.sh -c Release -s 120 -f
 ```
 
 ## Global Environment | 全局环境配置
@@ -161,12 +232,17 @@ ecuda
 | RTX 30 | Ampere | 86 | RTX 3060, 3080, 3090 |
 | RTX 40 | Ada Lovelace | 89 | RTX 4060, 4080, 4090 |
 | H100 | Hopper | 90 | H100 |
+| H100 SXM | Hopper (SXM) | 90a | H100 SXM (SM-specific features) |
 | B100 / B200 | Blackwell (DC) | 100 | B100, B200, GB200 |
 | RTX 50 | Blackwell | 120 | RTX 5070, 5080, 5090 |
 
-> 使用 `nvidia-smi` 查看 GPU 型号，对照上表选择 SM 值。
+> **注意 Note**：`sm_90a` 是 H100 SXM 专用的 SM 变体，包含 SXM 独有的硬件特性（如 TMA）。PCIe 版 H100 使用 `sm_90`。
 >
-> Use `nvidia-smi` to check GPU model and select SM value from the table above.
+> **Note**: `sm_90a` is an SXM-exclusive SM variant for H100 SXM with SXM-only hardware features (e.g. TMA). PCIe H100 uses `sm_90`.
+
+> 使用 `nvidia-smi` 查看 GPU 型号，对照上表选择 SM 值。脚本默认会自动探测本机 GPU 架构。
+>
+> Use `nvidia-smi` to check GPU model and select SM value from the table above. Scripts auto-detect native GPU architecture by default.
 
 ## cuda_helper.h API
 

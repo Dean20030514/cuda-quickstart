@@ -27,6 +27,23 @@ try {
     $vsdev = Find-VsDevCmd
     $cudaAllowFlag = Get-CudaUnsupportedCompilerFlag -VsDevCmdPath $vsdev
 
+    # 自动探测本机 GPU 架构（nvidia-smi），未指定 -Sm 时启用
+    # Auto-detect native GPU architecture via nvidia-smi when -Sm is not specified
+    $detectedNative = $false
+    if (-not $Sm) {
+        try {
+            $smiOutput = & nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>$null
+            if ($LASTEXITCODE -eq 0 -and $smiOutput) {
+                # 取第一块 GPU，将 "8.9" 转为 "89"
+                $cap = ($smiOutput -split "`n")[0].Trim() -replace '\.', ''
+                if ($cap -match '^\d{2,3}$') {
+                    $Sm = $cap
+                    $detectedNative = $true
+                }
+            }
+        } catch { <# nvidia-smi not available; fall through to multi-arch fatbin #> }
+    }
+
     # 生成 -gencode 片段
     if ($Sm) {
         $arch = $Sm.Trim()
@@ -58,8 +75,9 @@ try {
 
     Write-Host "[build_and_run] Configuration: $Configuration" -ForegroundColor Yellow
     Write-Host "[build_and_run] Using VsDevCmd: $vsdev" -ForegroundColor Cyan
-    if ($Sm) { Write-Host "[build_and_run] Target SM: $Sm" -ForegroundColor Yellow }
-    else { Write-Host "[build_and_run] Target: multi-arch fatbin" -ForegroundColor Yellow }
+    if ($detectedNative) { Write-Host "[build_and_run] Target SM: $Sm (auto-detected native GPU)" -ForegroundColor Yellow }
+    elseif ($Sm) { Write-Host "[build_and_run] Target SM: $Sm" -ForegroundColor Yellow }
+    else { Write-Host "[build_and_run] Target: multi-arch fatbin (nvidia-smi not available)" -ForegroundColor Yellow }
     if ($FastMath) { Write-Host "[build_and_run] FastMath: ON" -ForegroundColor Yellow }
     if (-not [string]::IsNullOrEmpty($cudaAllowFlag)) { Write-Host "[build_and_run] Using CUDA flag: $cudaAllowFlag (VS not 2022)" -ForegroundColor DarkYellow }
 
