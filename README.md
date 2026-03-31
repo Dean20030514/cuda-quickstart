@@ -82,32 +82,32 @@ bash scripts/configure_build_run.sh
 After a successful run, terminal output looks similar to this (exact values vary by GPU):
 
 ```
-=== GPU Device 0: NVIDIA GeForce RTX 4090 ===
-  Compute capability : 8.9
-  SM count           : 128
-  Global memory      : 23.6 GiB
+=== GPU Device 0: NVIDIA GeForce RTX 5070 Laptop GPU ===
+  Compute capability : 12.0
+  SM count           : 36
+  Global memory      : 8.0 GiB
   Shared mem/block   : 48.0 KiB
   Max threads/block  : 1024
   Warp size          : 32
-  Clock rate (core)  : 2520 MHz
-  Clock rate (mem)   : 10501 MHz
-  Memory bus width   : 384-bit
-  L2 cache size      : 73728 KB
+  Clock rate (core)  : 1545 MHz
+  Clock rate (mem)   : 12001 MHz
+  Memory bus width   : 128-bit
+  L2 cache size      : 32768 KB
   ECC enabled        : No
-  Async engines      : 2
+  Async engines      : 1
 ==============================
 === Bandwidth Test (64 MiB, avg of 5 runs) ===
-  H2D : 25.31 GB/s (2.65 ms)
-  D2H : 25.82 GB/s (2.60 ms)
+  H2D : 28.53 GB/s (2.35 ms)
+  D2H : 28.78 GB/s (2.33 ms)
 ==============================
 
 --- Kernel Demo ---
 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 ...  (N=1048576)
-  kernel elapsed: 0.042 ms
+  kernel elapsed: 0.307 ms
   verification:   PASSED
 
 --- Async Stream Demo ---
-  Async round-trip 1.0 MB: 0.089 ms -> PASSED
+  Async round-trip 1.0 MB: 0.155 ms -> PASSED
 
 === All demos completed. ===
 ```

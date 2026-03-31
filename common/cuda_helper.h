@@ -381,9 +381,13 @@ inline unsigned int calcGridSize(size_t n, unsigned int blockSize) {
  * @brief 打印当前 GPU 设备信息 | Print current GPU device information
  *
  * 输出设备名称、算力、显存等关键信息，方便调试和性能分析。
+ * 自 CUDA 13.0 起，`cudaDeviceProp` 不再包含 `clockRate` / `memoryClockRate`
+ *（12.x 已弃用）；此处通过 `cudaDeviceGetAttribute` 读取核心/显存时钟、ECC、异步引擎数。
  *
  * Prints device name, compute capability, memory, etc. for debugging
  * and performance analysis.
+ * Since CUDA 13.0, `cudaDeviceProp` no longer has `clockRate` / `memoryClockRate`
+ * (deprecated in 12.x); this uses `cudaDeviceGetAttribute` for clocks, ECC, and async engines.
  */
 inline void printDeviceInfo(int device = 0) {
     cudaDeviceProp prop;
@@ -395,12 +399,18 @@ inline void printDeviceInfo(int device = 0) {
     printf("  Shared mem/block   : %.1f KiB\n", prop.sharedMemPerBlock / 1024.0);
     printf("  Max threads/block  : %d\n", prop.maxThreadsPerBlock);
     printf("  Warp size          : %d\n", prop.warpSize);
-    printf("  Clock rate (core)  : %.0f MHz\n", prop.clockRate / 1000.0);
-    printf("  Clock rate (mem)   : %.0f MHz\n", prop.memoryClockRate / 1000.0);
+    // clockRate / memoryClockRate removed from cudaDeviceProp in CUDA 13.0; use attributes
+    int clockKHz = 0, memClockKHz = 0, eccEnabled = 0, asyncEngines = 0;
+    CUDA_CHECK(cudaDeviceGetAttribute(&clockKHz, cudaDevAttrClockRate, device));
+    CUDA_CHECK(cudaDeviceGetAttribute(&memClockKHz, cudaDevAttrMemoryClockRate, device));
+    CUDA_CHECK(cudaDeviceGetAttribute(&eccEnabled, cudaDevAttrEccEnabled, device));
+    CUDA_CHECK(cudaDeviceGetAttribute(&asyncEngines, cudaDevAttrAsyncEngineCount, device));
+    printf("  Clock rate (core)  : %.0f MHz\n", clockKHz / 1000.0);
+    printf("  Clock rate (mem)   : %.0f MHz\n", memClockKHz / 1000.0);
     printf("  Memory bus width   : %d-bit\n", prop.memoryBusWidth);
     printf("  L2 cache size      : %d KB\n", prop.l2CacheSize / 1024);
-    printf("  ECC enabled        : %s\n", prop.ECCEnabled ? "Yes" : "No");
-    printf("  Async engines      : %d\n", prop.asyncEngineCount);
+    printf("  ECC enabled        : %s\n", eccEnabled ? "Yes" : "No");
+    printf("  Async engines      : %d\n", asyncEngines);
     printf("==============================\n");
 }
 
