@@ -19,7 +19,6 @@ inline const char* cufftGetResultString(cufftResult result) {
         case CUFFT_EXEC_FAILED:        return "CUFFT_EXEC_FAILED";
         case CUFFT_SETUP_FAILED:       return "CUFFT_SETUP_FAILED";
         case CUFFT_INVALID_SIZE:       return "CUFFT_INVALID_SIZE";
-        case CUFFT_INCOMPLETE_PARAMETER_LIST: return "CUFFT_INCOMPLETE_PARAMETER_LIST";
         default:                       return "CUFFT_UNKNOWN";
     }
 }

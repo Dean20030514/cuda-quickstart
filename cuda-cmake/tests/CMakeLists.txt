@@ -1,3 +1,4 @@
+include(GoogleTest)
 include(FetchContent)
 FetchContent_Declare(
 	googletest
@@ -17,6 +18,11 @@ add_executable(cuda_tests
 
 target_include_directories(cuda_tests PRIVATE ${CMAKE_SOURCE_DIR}/../common)
 target_link_libraries(cuda_tests PRIVATE GTest::gtest_main CUDA::cudart)
+
+# MSVC UTF-8 encoding for source files with Chinese comments
+target_compile_options(cuda_tests PRIVATE
+	$<$<CXX_COMPILER_ID:MSVC>:/utf-8>
+)
 
 # 传递与主目标相同的库编译宏，使 #ifdef 测试能编译
 # Pass same library compile defs as main target so #ifdef tests compile
