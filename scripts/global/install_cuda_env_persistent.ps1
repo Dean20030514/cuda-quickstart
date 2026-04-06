@@ -49,7 +49,7 @@ function Get-HighestCudaPath {
   if ($env:CUDA_PATH -and (Test-Path $env:CUDA_PATH)) { return (Resolve-Path $env:CUDA_PATH).Path }
   $base = 'C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA'
   if (-not (Test-Path $base)) { return $null }
-  $dirs = Get-ChildItem -Path $base -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending
+  $dirs = @(Get-ChildItem -Path $base -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending)
   if ($dirs.Count -gt 0) { return $dirs[0].FullName }
   return $null
 }
@@ -71,14 +71,18 @@ function Update-Path([string[]]$toAdd, [EnvironmentVariableTarget]$target){
   $normalized = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
   foreach($p in $parts){ if ($p) { $null = $normalized.Add($p.Trim()) } }
   $added = @()
+  $newEntries = @()
   foreach($p in $toAdd){
     if ($p -and (Test-Path $p)){
       if (-not $normalized.Contains($p)){
-        $parts = ,$p + $parts  # prepend for higher priority
+        $newEntries += $p
         $null = $normalized.Add($p)
         $added += $p
       }
     }
+  }
+  if ($newEntries.Count -gt 0) {
+    $parts = $newEntries + $parts  # prepend as group, preserving caller's sort order
   }
   if ($added.Count -gt 0){
     $newPath = ($parts -join $sep).TrimEnd($sep)

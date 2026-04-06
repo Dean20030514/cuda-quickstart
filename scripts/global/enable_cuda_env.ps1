@@ -46,7 +46,7 @@ function Ensure-CudaOnPath {
     # Probe default install directory to pick highest version
     $base = 'C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA'
     if (Test-Path $base) {
-      $versions = Get-ChildItem -Path $base -Directory | Sort-Object Name -Descending
+      $versions = @(Get-ChildItem -Path $base -Directory | Sort-Object Name -Descending)
       if ($versions.Count -gt 0) { $cudaRoot = $versions[0].FullName }
     }
   }
