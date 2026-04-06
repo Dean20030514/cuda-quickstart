@@ -6,10 +6,7 @@
 #include <cudnn.h>
 
 /**
- * @brief cuDNN 错误检查宏 | cuDNN Error Checking Macro
- *
- * NOTE: exit-style only. _THROW variant not yet provided — see cuda_check.h
- * for the pattern if you need exception-based cuDNN error handling.
+ * @brief cuDNN 错误检查宏（exit）| cuDNN Error Checking Macro (exit)
  */
 #define CUDNN_CHECK(call)                                                         \
     do {                                                                          \
@@ -22,6 +19,26 @@
     } while (0)
 
 /**
+ * @brief cuDNN 异常式错误检查宏 | cuDNN Exception-based Error Checking Macro
+ *
+ * 与 CUDNN_CHECK 类似，但抛出 std::runtime_error 而非调用 exit()，
+ * 使 RAII 析构函数能正常执行。
+ *
+ * Similar to CUDNN_CHECK but throws std::runtime_error instead of exit(),
+ * allowing RAII destructors to run properly.
+ */
+#define CUDNN_CHECK_THROW(call)                                                   \
+    do {                                                                          \
+        cudnnStatus_t status = (call);                                            \
+        if (status != CUDNN_STATUS_SUCCESS) {                                     \
+            throw std::runtime_error(                                             \
+                std::string("cuDNN error at ") + __FILE__ + ":" +                 \
+                std::to_string(__LINE__) + ": " +                                 \
+                cudnnGetErrorString(status));                                      \
+        }                                                                         \
+    } while (0)
+
+/**
  * @brief RAII 风格的 cuDNN Handle 包装类 | RAII-style cuDNN Handle Wrapper Class
  */
 class CudnnHandle {
@@ -29,7 +46,7 @@ class CudnnHandle {
 public:
     CudnnHandle() {
         cudnnHandle_t h = nullptr;
-        CUDNN_CHECK(cudnnCreate(&h));
+        CUDNN_CHECK_THROW(cudnnCreate(&h));
         handle_ = UniqueHandle<cudnnHandle_t, nullptr, Deleter>(h);
     }
 
@@ -48,13 +65,13 @@ class CudnnTensorDescriptor {
 public:
     CudnnTensorDescriptor() {
         cudnnTensorDescriptor_t d = nullptr;
-        CUDNN_CHECK(cudnnCreateTensorDescriptor(&d));
+        CUDNN_CHECK_THROW(cudnnCreateTensorDescriptor(&d));
         handle_ = UniqueHandle<cudnnTensorDescriptor_t, nullptr, Deleter>(d);
     }
 
     void set4d(cudnnTensorFormat_t format, cudnnDataType_t dataType,
                int n, int c, int h, int w) {
-        CUDNN_CHECK(cudnnSetTensor4dDescriptor(handle_.get(), format, dataType, n, c, h, w));
+        CUDNN_CHECK_THROW(cudnnSetTensor4dDescriptor(handle_.get(), format, dataType, n, c, h, w));
     }
 
     [[nodiscard]] cudnnTensorDescriptor_t get() const noexcept { return handle_.get(); }

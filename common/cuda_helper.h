@@ -16,6 +16,15 @@
 #include "cuda_check.h"
 #include "cuda_raii.h"
 #include "cuda_utils.h"
+
+#ifdef HAVE_CUDNN
 #include "cuda_cudnn.h"
+#endif
+
+#ifdef HAVE_CUBLAS
 #include "cuda_cublas.h"
+#endif
+
+#ifdef HAVE_CUFFT
 #include "cuda_cufft.h"
+#endif

@@ -34,14 +34,6 @@
  * @param blockSize 每个 block 的线程数 | Number of threads per block
  * @return 需要的 grid 大小 | Required grid size
  */
-inline unsigned int calcGridSize(unsigned int n, unsigned int blockSize) {
-    return (n + blockSize - 1) / blockSize;
-}
-
-inline int calcGridSize(int n, int blockSize) {
-    return (n + blockSize - 1) / blockSize;
-}
-
 inline unsigned int calcGridSize(size_t n, unsigned int blockSize) {
     return static_cast<unsigned int>((n + blockSize - 1) / blockSize);
 }
@@ -117,25 +109,35 @@ inline void measureBandwidth(size_t sizeBytes = 64 * 1024 * 1024, int iterations
     CudaDeviceMemory<char> d(sizeBytes);
     h.get()[0] = 0;
 
+    // 使用独立 stream + cudaMemcpyAsync，这是现代 CUDA 的推荐写法。
+    // 在单 stream 上异步操作仍串行执行，带宽结果与同步版本基本一致；
+    // 但此写法可自然扩展到多 stream overlap 场景。
+    //
+    // Uses a dedicated stream + cudaMemcpyAsync (modern best practice).
+    // On a single stream, async operations still execute serially, so
+    // measured bandwidth is essentially the same as the synchronous version;
+    // however this form naturally extends to multi-stream overlap scenarios.
+    CudaStream stream;
     CudaEvent start, stop;
 
     // Warmup: 首次传输可能因驱动初始化/页表建立偏慢
     // Warmup: first transfer may be slow due to driver init / page table setup
-    CUDA_CHECK_THROW(cudaMemcpy(d.get(), h.get(), sizeBytes, cudaMemcpyHostToDevice));
-    CUDA_CHECK_THROW(cudaMemcpy(h.get(), d.get(), sizeBytes, cudaMemcpyDeviceToHost));
+    CUDA_CHECK_THROW(cudaMemcpyAsync(d.get(), h.get(), sizeBytes, cudaMemcpyHostToDevice, stream.get()));
+    CUDA_CHECK_THROW(cudaMemcpyAsync(h.get(), d.get(), sizeBytes, cudaMemcpyDeviceToHost, stream.get()));
+    stream.synchronize();
 
     float h2d_total = 0.f, d2h_total = 0.f;
     for (int i = 0; i < iterations; ++i) {
         // H2D
-        start.record();
-        CUDA_CHECK_THROW(cudaMemcpy(d.get(), h.get(), sizeBytes, cudaMemcpyHostToDevice));
-        stop.record();
+        start.record(stream.get());
+        CUDA_CHECK_THROW(cudaMemcpyAsync(d.get(), h.get(), sizeBytes, cudaMemcpyHostToDevice, stream.get()));
+        stop.record(stream.get());
         h2d_total += elapsedMs(start, stop);
 
         // D2H
-        start.record();
-        CUDA_CHECK_THROW(cudaMemcpy(h.get(), d.get(), sizeBytes, cudaMemcpyDeviceToHost));
-        stop.record();
+        start.record(stream.get());
+        CUDA_CHECK_THROW(cudaMemcpyAsync(h.get(), d.get(), sizeBytes, cudaMemcpyDeviceToHost, stream.get()));
+        stop.record(stream.get());
         d2h_total += elapsedMs(start, stop);
     }
 

@@ -6,18 +6,53 @@
 #include <cublas_v2.h>
 
 /**
- * @brief cuBLAS 错误检查宏 | cuBLAS Error Checking Macro
- *
- * NOTE: exit-style only. _THROW variant not yet provided — see cuda_check.h
- * for the pattern if you need exception-based cuBLAS error handling.
+ * @brief cuBLAS 状态码转字符串 | cuBLAS status code to string
+ */
+inline const char* cublasGetStatusString(cublasStatus_t status) {
+    switch (status) {
+        case CUBLAS_STATUS_SUCCESS:          return "CUBLAS_STATUS_SUCCESS";
+        case CUBLAS_STATUS_NOT_INITIALIZED:  return "CUBLAS_STATUS_NOT_INITIALIZED";
+        case CUBLAS_STATUS_ALLOC_FAILED:     return "CUBLAS_STATUS_ALLOC_FAILED";
+        case CUBLAS_STATUS_INVALID_VALUE:    return "CUBLAS_STATUS_INVALID_VALUE";
+        case CUBLAS_STATUS_ARCH_MISMATCH:    return "CUBLAS_STATUS_ARCH_MISMATCH";
+        case CUBLAS_STATUS_MAPPING_ERROR:    return "CUBLAS_STATUS_MAPPING_ERROR";
+        case CUBLAS_STATUS_EXECUTION_FAILED: return "CUBLAS_STATUS_EXECUTION_FAILED";
+        case CUBLAS_STATUS_INTERNAL_ERROR:   return "CUBLAS_STATUS_INTERNAL_ERROR";
+        case CUBLAS_STATUS_NOT_SUPPORTED:    return "CUBLAS_STATUS_NOT_SUPPORTED";
+        default:                             return "CUBLAS_STATUS_UNKNOWN";
+    }
+}
+
+/**
+ * @brief cuBLAS 错误检查宏（exit）| cuBLAS Error Checking Macro (exit)
  */
 #define CUBLAS_CHECK(call)                                                        \
     do {                                                                          \
         cublasStatus_t status = (call);                                           \
         if (status != CUBLAS_STATUS_SUCCESS) {                                    \
-            fprintf(stderr, "cuBLAS error at %s:%d: status=%d\n",                  \
-                    __FILE__, __LINE__, static_cast<int>(status));                \
+            fprintf(stderr, "cuBLAS error at %s:%d: %s\n",                         \
+                    __FILE__, __LINE__, cublasGetStatusString(status));           \
             exit(EXIT_FAILURE);                                                   \
+        }                                                                         \
+    } while (0)
+
+/**
+ * @brief cuBLAS 异常式错误检查宏 | cuBLAS Exception-based Error Checking Macro
+ *
+ * 与 CUBLAS_CHECK 类似，但抛出 std::runtime_error 而非调用 exit()，
+ * 使 RAII 析构函数能正常执行。
+ *
+ * Similar to CUBLAS_CHECK but throws std::runtime_error instead of exit(),
+ * allowing RAII destructors to run properly.
+ */
+#define CUBLAS_CHECK_THROW(call)                                                  \
+    do {                                                                          \
+        cublasStatus_t status = (call);                                           \
+        if (status != CUBLAS_STATUS_SUCCESS) {                                    \
+            throw std::runtime_error(                                             \
+                std::string("cuBLAS error at ") + __FILE__ + ":" +                \
+                std::to_string(__LINE__) + ": " +                                 \
+                cublasGetStatusString(status));                                    \
         }                                                                         \
     } while (0)
 
@@ -29,7 +64,7 @@ class CublasHandle {
 public:
     CublasHandle() {
         cublasHandle_t h = nullptr;
-        CUBLAS_CHECK(cublasCreate(&h));
+        CUBLAS_CHECK_THROW(cublasCreate(&h));
         handle_ = UniqueHandle<cublasHandle_t, nullptr, Deleter>(h);
     }
 

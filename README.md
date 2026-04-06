@@ -262,9 +262,12 @@ ecuda
 | `CUDA_CHECK_THROW(call)` | CUDA API 错误检查（异常）| CUDA API error checking (exception) |
 | `CUDA_CHECK_KERNEL()` | Kernel 错误检查（exit）| Kernel error checking (exit) |
 | `CUDA_CHECK_KERNEL_THROW()` | Kernel 错误检查（异常）| Kernel error checking (exception) |
-| `CUDNN_CHECK(call)` | cuDNN 错误检查 | cuDNN error checking (requires `HAVE_CUDNN`) |
-| `CUBLAS_CHECK(call)` | cuBLAS 错误检查 | cuBLAS error checking (requires `HAVE_CUBLAS`) |
-| `CUFFT_CHECK(call)` | cuFFT 错误检查 | cuFFT error checking (requires `HAVE_CUFFT`) |
+| `CUDNN_CHECK(call)` | cuDNN 错误检查（exit）| cuDNN error checking (exit) (requires `HAVE_CUDNN`) |
+| `CUDNN_CHECK_THROW(call)` | cuDNN 错误检查（异常）| cuDNN error checking (exception) (requires `HAVE_CUDNN`) |
+| `CUBLAS_CHECK(call)` | cuBLAS 错误检查（exit）| cuBLAS error checking (exit) (requires `HAVE_CUBLAS`) |
+| `CUBLAS_CHECK_THROW(call)` | cuBLAS 错误检查（异常）| cuBLAS error checking (exception) (requires `HAVE_CUBLAS`) |
+| `CUFFT_CHECK(call)` | cuFFT 错误检查（exit）| cuFFT error checking (exit) (requires `HAVE_CUFFT`) |
+| `CUFFT_CHECK_THROW(call)` | cuFFT 错误检查（异常）| cuFFT error checking (exception) (requires `HAVE_CUFFT`) |
 
 ### RAII Classes | RAII 类
 
@@ -280,9 +283,9 @@ ecuda
 | `CudnnHandle` | RAII cuDNN handle (requires `HAVE_CUDNN`) |
 | `CudnnTensorDescriptor` | RAII cuDNN tensor descriptor (requires `HAVE_CUDNN`) |
 
-> **错误处理差异 Note on error handling**：核心类（`CudaStream`、`CudaEvent`、`CudaDeviceMemory`、`CudaPinnedMemory`）使用 **throw-style**（`CUDA_CHECK_THROW`），可被 try/catch 捕获。库包装类（`CublasHandle`、`CufftPlan`、`CudnnHandle`、`CudnnTensorDescriptor`）使用 **exit-style**（`CUBLAS_CHECK` / `CUFFT_CHECK` / `CUDNN_CHECK`），初始化失败会直接 `exit(EXIT_FAILURE)`，不会抛出异常。
+> **错误处理 Note on error handling**：所有 RAII 类（包括核心类和库包装类）均使用 **throw-style** 宏（`CUDA_CHECK_THROW` / `CUBLAS_CHECK_THROW` / `CUFFT_CHECK_THROW` / `CUDNN_CHECK_THROW`），初始化或操作失败会抛出 `std::runtime_error`，可被 try/catch 捕获，RAII 析构函数正常执行。每个库同时提供 **exit-style** 宏（`CUBLAS_CHECK` / `CUFFT_CHECK` / `CUDNN_CHECK`）供不使用异常的场景。
 >
-> **Note**: Core classes (`CudaStream`, `CudaEvent`, `CudaDeviceMemory`, `CudaPinnedMemory`) use **throw-style** error handling (`CUDA_CHECK_THROW`) and can be caught with try/catch. Library wrapper classes (`CublasHandle`, `CufftPlan`, `CudnnHandle`, `CudnnTensorDescriptor`) use **exit-style** macros (`CUBLAS_CHECK` / `CUFFT_CHECK` / `CUDNN_CHECK`) — initialization failures call `exit(EXIT_FAILURE)` instead of throwing.
+> **Note**: All RAII classes (both core and library wrappers) use **throw-style** macros (`CUDA_CHECK_THROW` / `CUBLAS_CHECK_THROW` / `CUFFT_CHECK_THROW` / `CUDNN_CHECK_THROW`), throwing `std::runtime_error` on failure so RAII destructors run properly. Each library also provides **exit-style** macros (`CUBLAS_CHECK` / `CUFFT_CHECK` / `CUDNN_CHECK`) for exception-free contexts.
 
 ### Utility Functions | 工具函数
 

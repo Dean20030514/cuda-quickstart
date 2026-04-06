@@ -2,6 +2,7 @@
 
 #include "cuda_check.h"
 #include <algorithm>
+#include <cassert>
 #include <type_traits>
 
 // ============================================================================
@@ -171,24 +172,28 @@ public:
 
     void copyFromHost(const T* src, size_t n = 0) {
         if (!handle_) return;
+        assert(n == 0 || n <= count_);
         size_t copyCount = (n == 0) ? count_ : std::min(n, count_);
         CUDA_CHECK_THROW(cudaMemcpy(handle_.get(), src, copyCount * sizeof(T), cudaMemcpyHostToDevice));
     }
 
     void copyToHost(T* dst, size_t n = 0) const {
         if (!handle_) return;
+        assert(n == 0 || n <= count_);
         size_t copyCount = (n == 0) ? count_ : std::min(n, count_);
         CUDA_CHECK_THROW(cudaMemcpy(dst, handle_.get(), copyCount * sizeof(T), cudaMemcpyDeviceToHost));
     }
 
     void copyFromHostAsync(const T* src, cudaStream_t stream, size_t n = 0) {
         if (!handle_) return;
+        assert(n == 0 || n <= count_);
         size_t copyCount = (n == 0) ? count_ : std::min(n, count_);
         CUDA_CHECK_THROW(cudaMemcpyAsync(handle_.get(), src, copyCount * sizeof(T), cudaMemcpyHostToDevice, stream));
     }
 
     void copyToHostAsync(T* dst, cudaStream_t stream, size_t n = 0) const {
         if (!handle_) return;
+        assert(n == 0 || n <= count_);
         size_t copyCount = (n == 0) ? count_ : std::min(n, count_);
         CUDA_CHECK_THROW(cudaMemcpyAsync(dst, handle_.get(), copyCount * sizeof(T), cudaMemcpyDeviceToHost, stream));
     }
@@ -255,8 +260,8 @@ public:
     [[nodiscard]] size_t count() const noexcept { return count_; }
     [[nodiscard]] size_t bytes() const noexcept { return count_ * sizeof(T); }
 
-    T& operator[](size_t i) { return handle_.get()[i]; }
-    const T& operator[](size_t i) const { return handle_.get()[i]; }
+    T& operator[](size_t i) { assert(i < count_); return handle_.get()[i]; }
+    const T& operator[](size_t i) const { assert(i < count_); return handle_.get()[i]; }
 
 private:
     UniqueHandle<T*, nullptr, Deleter> handle_;
