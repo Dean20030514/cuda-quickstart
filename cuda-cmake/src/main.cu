@@ -1,10 +1,10 @@
 // cuda-cmake/src/main.cu - CUDA + cuDNN/cuBLAS/cuFFT example using common header
 // cuda-cmake/src/main.cu - 使用公共头文件的 CUDA + cuDNN/cuBLAS/cuFFT 示例
 #include "../../common/cuda_helper.h"
+#include "../../common/cuda_demos.cuh"
 #include <vector>
-#include <numeric>
-#include <cassert>
 #include <cmath>
+#include <cassert>
 #ifdef HAVE_NVTX
 #include <nvtx3/nvtx3.hpp>
 #endif
@@ -18,37 +18,6 @@ __global__ void add_one(int* __restrict__ a, int n) {
     for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < n; i += blockDim.x * gridDim.x) {
         a[i] += 1;
     }
-}
-
-//==============================================================================
-// Demo: 使用 Stream 的异步拷贝 | Async copy with Stream
-//==============================================================================
-
-static void demoAsyncStream() {
-    printf("\n--- Async Stream Demo ---\n");
-    const int N = 1 << 18;
-
-    CudaStream stream(cudaStreamNonBlocking);
-    CudaPinnedMemory<float> h_in(N), h_out(N);
-    CudaDeviceMemory<float> d_buf(N);
-
-    for (size_t i = 0; i < (size_t)N; ++i) h_in[i] = static_cast<float>(i);
-
-    CudaEvent start, stop;
-    start.record(stream.get());
-    d_buf.copyFromHostAsync(h_in.get(), stream.get());
-    d_buf.copyToHostAsync(h_out.get(), stream.get());
-    stop.record(stream.get());
-
-    stream.synchronize();
-    float ms = CudaEvent::elapsedMs(start, stop);
-
-    bool ok = true;
-    for (int i = 0; i < N; ++i) {
-        if (h_out[i] != static_cast<float>(i)) { ok = false; break; }
-    }
-    double sizeMB = (double)N * sizeof(float) / (1024.0 * 1024.0);
-    printf("  Async round-trip %.1f MB: %.3f ms -> %s\n", sizeMB, ms, ok ? "PASSED" : "FAILED");
 }
 
 //==============================================================================
@@ -70,7 +39,7 @@ static void demoCuBLAS() {
     // y = alpha * x + y (SAXPY)
     float alpha = 3.0f;
     CUBLAS_CHECK(cublasSaxpy(handle.get(), N, &alpha, d_x.get(), 1, d_y.get(), 1));
-    CUDA_CHECK(cudaDeviceSynchronize());
+    CUDA_CHECK_THROW(cudaDeviceSynchronize());
 
     d_y.copyToHost(h_y.data());
     bool ok = true;
@@ -108,9 +77,9 @@ static void demoCuFFT() {
     CUFFT_CHECK(cufftExecC2C(plan.get(), reinterpret_cast<cufftComplex*>(d_data.get()),
                              reinterpret_cast<cufftComplex*>(d_data.get()), CUFFT_FORWARD));
     stop.record();
-    CUDA_CHECK(cudaDeviceSynchronize());
+    CUDA_CHECK_THROW(cudaDeviceSynchronize());
 
-    float ms = CudaEvent::elapsedMs(start, stop);
+    float ms = elapsedMs(start, stop);
     printf("  1D C2C FFT (N=%d): %.3f ms\n", N, ms);
 }
 #endif
@@ -121,70 +90,45 @@ static void demoCuFFT() {
 
 int main() {
     printDeviceInfo();
-    measureBandwidth();
 
-    printf("\n--- Kernel Demo ---\n");
-    const int N = 1 << 20;
-
-    std::vector<int> h(N);
-    std::iota(h.begin(), h.end(), 0);
-
-    CudaDeviceMemory<int> d(N);
-    d.copyFromHost(h.data());
-
-    const int block = 256;
-    const int grid = calcGridSize(N, block);
+    try {
+        measureBandwidth();
 
 #ifdef HAVE_NVTX
-    nvtx3::scoped_range r1{"add_one kernel"};
+        nvtx3::scoped_range r1{"add_one kernel"};
 #endif
-
-    CudaEvent e0, e1;
-    e0.record();
-    add_one<<<grid, block>>>(d.get(), N);
-    e1.record();
-    CUDA_CHECK_KERNEL();
-
-    float ms = CudaEvent::elapsedMs(e0, e1);
-    d.copyToHost(h.data());
-
-    bool ok = true;
-    for (int i = 0; i < N; ++i) {
-        if (h[i] != i + 1) { ok = false; break; }
-    }
-
-    for (int i = 0; i < 16 && i < N; ++i) printf("%d ", h[i]);
-    printf("...  (N=%d)\n", N);
-    printf("  kernel elapsed: %.3f ms\n", ms);
-    printf("  verification:   %s\n", ok ? "PASSED" : "FAILED");
-
-    demoAsyncStream();
+        bool ok = demoKernel(add_one);
+        demoAsyncStream();
 
 #ifdef HAVE_CUBLAS
-    demoCuBLAS();
+        demoCuBLAS();
 #else
-    printf("\n(cuBLAS not found at configure time; skipping cuBLAS demo)\n");
+        printf("\n(cuBLAS not found at configure time; skipping cuBLAS demo)\n");
 #endif
 
 #ifdef HAVE_CUFFT
-    demoCuFFT();
+        demoCuFFT();
 #else
-    printf("\n(cuFFT not found at configure time; skipping cuFFT demo)\n");
+        printf("\n(cuFFT not found at configure time; skipping cuFFT demo)\n");
 #endif
 
 #ifdef HAVE_CUDNN
-    printf("\n--- cuDNN Demo ---\n");
-    size_t ver = cudnnGetVersion();
-    printf("  cuDNN version: %zu\n", ver);
+        printf("\n--- cuDNN Demo ---\n");
+        size_t ver = cudnnGetVersion();
+        printf("  cuDNN version: %zu\n", ver);
 
-    CudnnHandle handle;
-    CudnnTensorDescriptor xDesc;
-    xDesc.set4d(CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, 1, 1, 4, 4);
-    printf("  cuDNN tensor descriptor created successfully.\n");
+        CudnnHandle handle;
+        CudnnTensorDescriptor xDesc;
+        xDesc.set4d(CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, 1, 1, 4, 4);
+        printf("  cuDNN tensor descriptor created successfully.\n");
 #else
-    printf("\n(cuDNN not found at configure time; skipping cuDNN demo)\n");
+        printf("\n(cuDNN not found at configure time; skipping cuDNN demo)\n");
 #endif
 
-    printf("\n=== All demos completed. ===\n");
-    return ok ? 0 : 1;
+        printf("\n=== All demos completed. ===\n");
+        return ok ? 0 : 1;
+    } catch (const std::exception& e) {
+        fprintf(stderr, "Fatal: %s\n", e.what());
+        return EXIT_FAILURE;
+    }
 }

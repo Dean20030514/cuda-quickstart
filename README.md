@@ -1,6 +1,6 @@
 # CUDA Quickstart
 
-[![CUDA](https://img.shields.io/badge/CUDA-13.0-green.svg)](https://developer.nvidia.com/cuda-toolkit)
+[![CUDA](https://img.shields.io/badge/CUDA-12.0+-green.svg)](https://developer.nvidia.com/cuda-toolkit)
 [![Windows](https://img.shields.io/badge/Platform-Windows-blue.svg)](https://www.microsoft.com/windows)
 [![VS Code](https://img.shields.io/badge/IDE-VS%20Code-007ACC.svg)](https://code.visualstudio.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -24,14 +24,14 @@ An out-of-the-box CUDA project template supporting Windows + VS Code development
 
 | 组件 Component | 要求 Requirement |
 |----------------|------------------|
-| CUDA Toolkit | >= 13.0 |
+| CUDA Toolkit | >= 12.0 |
 | CMake | >= 3.24 |
 | Visual Studio | 2022 / 2026 Build Tools |
 | VS Code 扩展 Extensions | C/C++, CMake Tools |
 
-> **说明 Note**：消费级 Blackwell（sm_120 / RTX 50）需 **CUDA 12.8+** 工具链；本仓库统一要求 **>= 13.0**，与顶部徽章一致。
+> **说明 Note**：已在 CUDA 12.8 和 13.0 上测试；通过 `CUDART_VERSION` 条件编译自动适配不同版本。消费级 Blackwell（sm_120 / RTX 50）需 **CUDA 12.8+** 工具链。
 >
-> **Note**: Consumer Blackwell (sm_120 / RTX 50) requires **CUDA 12.8+**; this repo standardizes on **>= 13.0** to match the badge above.
+> **Note**: Tested with CUDA 12.8 and 13.0; automatically adapts via `CUDART_VERSION` conditional compilation. Consumer Blackwell (sm_120 / RTX 50) requires **CUDA 12.8+**.
 
 验证环境 | Verify environment:
 
@@ -120,7 +120,15 @@ After a successful run, terminal output looks similar to this (exact values vary
 
 ```
 cuda-quickstart/
-├── common/cuda_helper.h           # RAII 工具 + 错误检查 + 带宽测试 | RAII utilities + error checking + bandwidth
+├── common/
+│   ├── cuda_helper.h              # 统一头文件（umbrella）| Umbrella include for backward compat
+│   ├── cuda_check.h               # 错误检查宏 | Error checking macros (CUDA_CHECK, _THROW)
+│   ├── cuda_raii.h                # UniqueHandle + RAII 类 | UniqueHandle + RAII wrappers
+│   ├── cuda_utils.h               # 工具函数 | Utilities (calcGridSize, printDeviceInfo, ...)
+│   ├── cuda_demos.cuh             # 共享 demo 函数 | Shared demo functions
+│   ├── cuda_cudnn.h               # cuDNN 包装 | cuDNN wrappers (optional)
+│   ├── cuda_cublas.h              # cuBLAS 包装 | cuBLAS wrappers (optional)
+│   └── cuda_cufft.h               # cuFFT 包装 | cuFFT wrappers (optional)
 ├── single-nvcc/                   # Option A
 │   ├── main.cu
 │   └── scripts/
